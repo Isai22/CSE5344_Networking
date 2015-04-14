@@ -49,6 +49,9 @@ def read_data() :
         #receive all packages
         s.ioctl(socket.SIO_RCVALL, socket.RCVALL_ON)
         count = 0
+        print "{TCP, UDP, ICMP}"
+        option = raw_input("Pick an Option: \n")
+        option = option.upper()
         while True:
             packet = s.recvfrom(65565)
             #print 'hi'
@@ -88,7 +91,7 @@ def read_data() :
             destinationIP = socket.inet_ntoa(ipDatagram[9])
             if(ipVer == 6):
                 print "version 6"
-                
+            """    
             print "\n\nVersion: \t\t" + str(ipVer)
             print "Header Length: \t\t" + str(iphl) + " bytes"
             #print "Type of Service: \t" + TypeOfService(TOS)
@@ -101,8 +104,8 @@ def read_data() :
             #print "Checksum:\t\t" + str(checksum)
             print "SourceIP:\t\t" + sourceIP
             print "DestinationIP:\t\t" + destinationIP
-        
-            if(protocol == 6):
+            """
+            if(protocol == 6 and option == 'TCP'):
                 
                 tcp_header = packet[iphl:iphl+20]
                 #unpack the tcp header information                
@@ -124,7 +127,7 @@ def read_data() :
                 data_size = len(packet) - header_size
                 data = packet[header_size:]                
               
-            elif(protocol == 17):
+            elif(protocol == 17 and option == 'UDP'):
                 udpl = 8
                 udp_header = packet[iphl:iphl+8]
                 #unpack the udp header which is much smaller than TCP
@@ -141,7 +144,7 @@ def read_data() :
                 header_size = iphl + udpl
                 data = packet[header_size:]
                 
-            elif(protocol == 1):
+            elif(protocol == 1 and option == 'ICMP'):
                 icmpl = 8
                 icmp_header = packet[iphl:iphl+icmpl]
                 #unpack the ICMP header which is only 4bytes

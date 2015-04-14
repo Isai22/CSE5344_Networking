@@ -17,6 +17,11 @@ NOTES:
     4.Keep timer and cumulative size or number of packets
     5.Measure throughput, display in graph
     
+    to get the throughput we can have a server running which our program will bind to and
+    send a file, we measure the time for it and that will give us the RTT. Also we can store the data
+    so that we can then filter through it according to the user
+    
+    
 """
 
 import socket
@@ -89,7 +94,7 @@ def read_data() :
             #print "Type of Service: \t" + TypeOfService(TOS)
             #print "Length:\t\t\t" + str(totalLength)
             #print "ID:\t\t\t" + str(hex(ID)) + '(' +str(ID) + ')'
-            #print "Flags:\t\t\t" + getFlags(flags)
+            print "Flags:\t\t\t" + getFlags(flags)
             #print "Fragment Offset:\t" + str(fragments)
             #print "TTL:\t\t\t" + str(ttl)
             print "Protocol:\t\t" + getProtocol(protocol)
@@ -98,8 +103,8 @@ def read_data() :
             print "DestinationIP:\t\t" + destinationIP
         
             if(protocol == 6):
-                length = iphl
-                tcp_header = packet[20:40]
+                
+                tcp_header = packet[iphl:iphl+20]
                 #unpack the tcp header information                
                 tcph = unpack('!HHLLBBHHH', tcp_header)
                 source_port = tcph[0]
@@ -109,15 +114,19 @@ def read_data() :
                 doff_reserved = tcph[4]
                 tcph_length = doff_reserved >> 4
                 
+                #extract all the flags from the tcp header
+                getTCPFlags(tcph[4], tcph[5])                
+                
                 print 'Source Port {}, Destination Port {}, sequence {}'.format(source_port, destination_port, sequence)
                 print 'Acknowledgement {}, TCP Length {}'.format(acknowledgment, tcph_length)
+                
                 header_size = iphl + tcph_length * 4
                 data_size = len(packet) - header_size
                 data = packet[header_size:]                
               
             elif(protocol == 17):
                 udpl = 8
-                udp_header = packet[20:28]
+                udp_header = packet[iphl:iphl+8]
                 #unpack the udp header which is much smaller than TCP
                 udph = unpack('!HHHH', udp_header)
                 
@@ -132,6 +141,21 @@ def read_data() :
                 header_size = iphl + udpl
                 data = packet[header_size:]
                 
+            elif(protocol == 1):
+                icmpl = 8
+                icmp_header = packet[iphl:iphl+icmpl]
+                #unpack the ICMP header which is only 4bytes
+                icmp = unpack('!BBHHH',icmp_header)
+                icmp_type = icmp[0]
+                icmp_code = icmp[1]
+                icmp_identifier = icmp[3]
+                icmp_sequence = icmp[4]
+                icmp_checksum = icmp[2]
+                
+                print "Type: {}, Code: {}, Checksum: {}".format(icmp_type, icmp_code, icmp_checksum)
+                print "Identifier: {}, Sequence: {}".format(icmp_identifier, icmp_sequence)
+            else:
+                print "\n\nOther Protocol\n\n"                
             count = count + 1
             if(count == 10):
                 answer = raw_input('Would you like to continue: Y|N \n')
@@ -147,7 +171,9 @@ def read_data() :
         sys.exit()
     except KeyboardInterrupt :
         print "Interrupted by User!"
-        
+    
+    
+    
     # disable promiscuous mode
     s.ioctl(socket.SIO_RCVALL, socket.RCVALL_OFF)
     s.close()
@@ -216,6 +242,31 @@ def getProtocol(data):
         return protocol
     else:
         return "No Such Protocol Found"
+        
+def getTCPFlags(reserved, flags) :
+    
+    #reserved flags
+    NS_flag = reserved & 0x1
+    
+    #congestion Window Reduced
+    CWR_flag = flags >> 7
+    #ECN-Echo, if SYN = 1 TCP peer is ECN capable, if SYN = 0 packet with congestion received
+    ECE_flag = flags >> 6 & 0x1
+    #indicates that the Urgent pointer field is significant
+    URG_flag = flags >> 5 & 0x1
+    #acknowledgement field is significant
+    ACK_flag = flags >> 4 & 0x1
+    #push function, asks to push the buffered data to the received
+    PSH_flag = flags >> 3 & 0x1
+    #reset the connection
+    RST_flag = flags >> 2 & 0x1
+    #synchronize sequence numbers
+    SYN_flag = flags >> 1 & 0x1
+    #no more data coming
+    FIN_flag = flags & 0x1
+    
+    print "NS: {}\nCWR: {}\nECE: {}\nURG: {}\nACK: {}".format(NS_flag, CWR_flag, ECE_flag, URG_flag, ACK_flag)
+    print "\nPSH: {}\nRST: {}\nSYN: {}\nFIN: {}\n".format(PSH_flag, RST_flag, SYN_flag, FIN_flag)
     
 if __name__ == '__main__':
     main()

@@ -28,7 +28,6 @@ import re
 import xlsxwriter
 
 def main() :
-<<<<<<< HEAD
     sniff_Linux()
 
 
@@ -165,76 +164,7 @@ def sniff_Linux():
 	print "Successfully implemented the First Part!"
 	#print out the maxsize and the average of the data session    
 	max_total(packet_List)
-=======
-    sniff_packets()
-    #read_ethernet()
- 
 
-def read_ethernet() :
-    #grab the name of the host by making this call:getHostbyname()
-    HOST = socket.gethostbyname(socket.gethostname())
-    #creation of the socket to be used throughout the program
-    try :        
-        s = socket.socket(socket.AF_INET, socket.SOCK_RAW)
-        print 'Successfully Created Raw Socket!\n'
-        #bind the host ot an open port
-        s.bind((HOST, 0))
-     
-        #Include IP headers
-        s.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
-        
-        #receive all packages
-        s.ioctl(socket.SIO_RCVALL, socket.RCVALL_ON)
-        print "\nPacket previews will be displayed, after sniffing begins, press CTRL-C when ready to stop sniffing.\n"
-        raw_input('Press Enter to continue')
-        #loop that will print a small preview of the IP header for the user to see and capture the packets        
-        while True:
-            #receive the data packets of up to size 65565
-            frame = s.recvfrom(65565)
-            packet = frame[0]
-            eth_length = 14
-            ethernet = packet[:eth_length]
-            eth = unpack('!6s6sH' , ethernet)
-            eth_protocol = socket.ntohs(eth[2])
-            print 'Destination MAC : ' + eth_addr(packet[0:6]) + ' Source MAC : ' + eth_addr(packet[6:12]) + ' Protocol : ' + str(eth_protocol)
- 
-    #exception to deal with issues in creation of the socket
-    except socket.error, msg:
-        print 'Socket could not be created. Error code : ' + str(msg[0]) + ' Message ' + msg[1]
-        sys.exit()
-    #exception to catch the command CTRL-C and continue with the program
-    except KeyboardInterrupt :
-        print "No More Sniffing!"
-        
-#Convert a string of 6 characters of ethernet address into a dash separated hex string
-def eth_addr (a) :
-  b = "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x" % (ord(a[0]) , ord(a[1]) , ord(a[2]), ord(a[3]), ord(a[4]) , ord(a[5]))
-  return b
-    
-def create_workbook(dictionary):
-    packets = dictionary['TCP']
-    numPackets = len(packets)
-    workbook = xlsxwriter.Workbook('congestion.xlsx')
-    worksheet = workbook.add_worksheet()
-    for i in range(0, numPackets):
-        packet = packets[i]
-        ipHeader = packet[0:20]
-        #unpack the data found in the ip datagram, there are 10 items
-        ipDatagram = unpack("!BBHHHBBH4s4s",ipHeader)
-        version_IPHeaderLength = ipDatagram[0]
-        ipHeaderLength = version_IPHeaderLength & 0xF
-        #
-        iphl = ipHeaderLength * 4        
-        
-        tcp_header = packet[iphl:iphl+20]
-        #unpack the tcp header information                
-        tcph = unpack('!HHLLBBHHH', tcp_header)
-        #the congestion window
-        conge_win = tcph[6]
-        worksheet.write('A'+str(i), conge_win)
-    workbook.close()
->>>>>>> b00f325af7f341618adbbbc28dcb5e035e4b4a74
-    
 	s.close()    
 
 

@@ -14,8 +14,9 @@ NOTES:
     
     to get the throughput we can have a server running which our program will bind to and
     send a file, we measure the time for it and that will give us the RTT. Also we can store the data
-    so that we can then filter through it according to the user. Need to calculate the average datagram size
-    as well as the diameter(TTL window) of the network.
+    so that we can then filter through it according to the user. Need to calculate the diameter(TTL window)
+    of the network. Need to plot the congestion window data aswell(timing and ploting it in a graph)
+    -possibly use a 2D-array to store time and congestion window
     
     
 """
@@ -24,8 +25,10 @@ import socket
 import sys
 from struct import *
 import re
+import xlsxwriter
 
 def main() :
+<<<<<<< HEAD
     sniff_Linux()
 
 
@@ -162,6 +165,75 @@ def sniff_Linux():
 	print "Successfully implemented the First Part!"
 	#print out the maxsize and the average of the data session    
 	max_total(packet_List)
+=======
+    sniff_packets()
+    #read_ethernet()
+ 
+
+def read_ethernet() :
+    #grab the name of the host by making this call:getHostbyname()
+    HOST = socket.gethostbyname(socket.gethostname())
+    #creation of the socket to be used throughout the program
+    try :        
+        s = socket.socket(socket.AF_INET, socket.SOCK_RAW)
+        print 'Successfully Created Raw Socket!\n'
+        #bind the host ot an open port
+        s.bind((HOST, 0))
+     
+        #Include IP headers
+        s.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
+        
+        #receive all packages
+        s.ioctl(socket.SIO_RCVALL, socket.RCVALL_ON)
+        print "\nPacket previews will be displayed, after sniffing begins, press CTRL-C when ready to stop sniffing.\n"
+        raw_input('Press Enter to continue')
+        #loop that will print a small preview of the IP header for the user to see and capture the packets        
+        while True:
+            #receive the data packets of up to size 65565
+            frame = s.recvfrom(65565)
+            packet = frame[0]
+            eth_length = 14
+            ethernet = packet[:eth_length]
+            eth = unpack('!6s6sH' , ethernet)
+            eth_protocol = socket.ntohs(eth[2])
+            print 'Destination MAC : ' + eth_addr(packet[0:6]) + ' Source MAC : ' + eth_addr(packet[6:12]) + ' Protocol : ' + str(eth_protocol)
+ 
+    #exception to deal with issues in creation of the socket
+    except socket.error, msg:
+        print 'Socket could not be created. Error code : ' + str(msg[0]) + ' Message ' + msg[1]
+        sys.exit()
+    #exception to catch the command CTRL-C and continue with the program
+    except KeyboardInterrupt :
+        print "No More Sniffing!"
+        
+#Convert a string of 6 characters of ethernet address into a dash separated hex string
+def eth_addr (a) :
+  b = "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x" % (ord(a[0]) , ord(a[1]) , ord(a[2]), ord(a[3]), ord(a[4]) , ord(a[5]))
+  return b
+    
+def create_workbook(dictionary):
+    packets = dictionary['TCP']
+    numPackets = len(packets)
+    workbook = xlsxwriter.Workbook('congestion.xlsx')
+    worksheet = workbook.add_worksheet()
+    for i in range(0, numPackets):
+        packet = packets[i]
+        ipHeader = packet[0:20]
+        #unpack the data found in the ip datagram, there are 10 items
+        ipDatagram = unpack("!BBHHHBBH4s4s",ipHeader)
+        version_IPHeaderLength = ipDatagram[0]
+        ipHeaderLength = version_IPHeaderLength & 0xF
+        #
+        iphl = ipHeaderLength * 4        
+        
+        tcp_header = packet[iphl:iphl+20]
+        #unpack the tcp header information                
+        tcph = unpack('!HHLLBBHHH', tcp_header)
+        #the congestion window
+        conge_win = tcph[6]
+        worksheet.write('A'+str(i), conge_win)
+    workbook.close()
+>>>>>>> b00f325af7f341618adbbbc28dcb5e035e4b4a74
     
 	s.close()    
 
@@ -355,7 +427,9 @@ def sniff_packets():
     #print "Number of packets {}, Number of TCP {}".format(len(packet_List), len(TCP_List))
     
     #assign to a dictionary all the list of different protocols
-    dict_Packets = create_Dict(packet_List, TCP_List, UDP_List, ICMP_List, IGMP_List, Other_List)    
+    dict_Packets = create_Dict(packet_List, TCP_List, UDP_List, ICMP_List, IGMP_List, Other_List) 
+    create_workbook(dict_Packets)    
+    
     #initialize a counter to keep track of how many packets to print at a time and assign a limit    
     keepCount = 0
     limit = 10
@@ -644,22 +718,31 @@ This will return the largest packet and the total cumulative length of all the p
 """         
 def max_total(packetList):
 
+    totalTTL = 0
     totalsize = 0    
-    maxsize = 0
-
+    maxsize = -1
+    maxTTL = -1
+    numPackets = len(packetList)
     for i in range(0, len(packetList)):
         ipdatagram = packetList[i]
         ipdata = ipdatagram[:20]        
         ipheader = unpack("!BBHHHBBH4s4s",ipdata)
         length = ipheader[4]
+        ttl = ipheader[5]
+        totalTTL += ttl
         totalsize += length
         if(maxsize<length):
             maxsize = length
+        if(maxTTL < ttl):
+            maxTTL = ttl
             
-    average = totalsize/len(packetList)
+    averageSize = float(totalsize/numPackets)
+    averageTTL = float(totalTTL/numPackets)
             
     print "The Maximum sized packet is: {}\n".format(maxsize)
-    print "The Average packet size for this session is: {}\n".format(average)
+    print "The Average packet size for this session is: {}\n".format(averageSize)
+    print "The Maximum Time To Live is: {}".format(maxTTL)    
+    print "The Average Time To Live is: {}".format(averageTTL)
             
 """
 This function is the one that stores the packets being sniffed. As they are sniffed the IP header

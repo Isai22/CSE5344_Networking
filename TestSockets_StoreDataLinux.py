@@ -37,6 +37,7 @@ def sniff_Linux():
     	ICMP_List = []
     	IGMP_List = []
     	Other_List = []
+	ARP_List = []
 	try:
 	    	s = socket.socket( socket.AF_PACKET , socket.SOCK_RAW , socket.ntohs(0x0003))
 		print "\nPacket previews will be displayed, after sniffing begins, press CTRL-C when ready to stop sniffing.\n"
@@ -48,11 +49,14 @@ def sniff_Linux():
         	    	#take the packet data from the tuple provided from call recvfrom which contains (packet, sourde Address)
         	    	packet = packet[0]
 			#print the ethernet data
-			eth_length = print_Etho(packet)        	    	
-			#allows the user to preview the Ip header info and help in choosing when to stop
-        	    	IP_preview_Linux(packet, eth_length)
+			eth_length, eth_protocol = print_Etho(packet)        	    	
+			if(eth_protocol == '0x800'):			
+				#allows the user to preview the Ip header info and help in choosing when to stop
+        	    		IP_preview_Linux(packet, eth_length)
+			else:
+				print "ARP Query!"
         	    	#store every packet being sniffed in the appropriate list which will be later placed in a dictionary
-        	    	store_data_Linux(packet, packet_List, TCP_List, UDP_List, ICMP_List, IGMP_List, Other_List)
+        	    	store_data_Linux(packet, packet_List, TCP_List, UDP_List, ICMP_List, IGMP_List, Other_List, ARP_List)
     	#exception to deal with issues in creation of the socket
     	except socket.error , msg:
         	print 'Socket could not be created. Error code : ' + str(msg[0]) + ' Message ' + msg[1]
@@ -62,10 +66,10 @@ def sniff_Linux():
         	print "No More Sniffing!"
 
 	#assign to a dictionary all the list of different protocols
-	dict_Packets = create_Dict(packet_List, TCP_List, UDP_List, ICMP_List, IGMP_List, Other_List)    
+	dict_Packets = create_Dict(packet_List, TCP_List, UDP_List, ICMP_List, IGMP_List, Other_List, ARP_List)    
 	#initialize a counter to keep track of how many packets to print at a time and assign a limit    
 	keepCount = 0
-	limit = 10
+	limit = 20
 	#loop that will print the captured data and give the user flexibility in accessing the data
     	while True:
         	#get an option from the user and display the menu
@@ -75,10 +79,12 @@ def sniff_Linux():
        		if(choice == '0'):
          		All = dict_Packets['ALL']
            		for i in range(0, len(All)):
-               			if(keepCount <= limit):
-					eth_length = print_Etho(packet)
+               			if(keepCount < limit):
+					eth_length, eth_protocol = print_Etho(All[i])
                    			iphl, protocol = print_IP_Linux(All[i], eth_length)
-                    			if(protocol == 6):
+					if(str(eth_protocol) == '0x806'):
+						print "This is an ARP query"
+                    			elif(protocol == 6):
                         			print_TCP(All[i], iphl+eth_length)
                     			elif(protocol == 17):
                        				print_UDP(All[i], iphl+eth_length)
@@ -96,8 +102,8 @@ def sniff_Linux():
         	elif(choice == '1'):
             		tcp = dict_Packets['TCP']
             		for i in range(0, len(tcp)):
-               			if(keepCount <= limit):
-					eth_length = print_Etho(packet)
+               			if(keepCount < limit):
+					eth_length, eth_protocol = print_Etho(tcp[i])
                     			iphl, protocol = print_IP_Linux(tcp[i], eth_length)
                     			print_TCP(tcp[i], iphl+eth_length)
                 		else:
@@ -108,8 +114,8 @@ def sniff_Linux():
 		elif(choice == '2'):
 		    udp = dict_Packets['UDP']
 		    for i in range(0, len(udp)):
-			if(keepCount <= limit):
-			    eth_length = print_Etho(packet)
+			if(keepCount < limit):
+			    eth_length, eth_protocol = print_Etho(udp[i])
 			    iphl, protocol = print_IP_Linux(udp[i], eth_length)
 			    print_UDP(udp[i], iphl+eth_length)
 			else:
@@ -120,8 +126,8 @@ def sniff_Linux():
 		elif(choice == '3'):
 		     icmp = dict_Packets['ICMP']
 		     for i in range(0, len(icmp)):
-			if(keepCount <= limit):
-			    eth_length = print_Etho(packet)
+			if(keepCount < limit):
+			    eth_length, eth_protocol = print_Etho(icmp[i])
 			    iphl, protocol = print_IP_Linux(icmp[i], eth_length)
 			    print_ICMP(icmp[i], iphl+eth_length)
 			else:
@@ -132,8 +138,8 @@ def sniff_Linux():
 		elif(choice == '4'):
 		    igmp = dict_Packets['IGMP']
 		    for i in range(0, len(igmp)):
-			if(keepCount <= limit):
-			    eth_length = print_Etho(packet)
+			if(keepCount < limit):
+			    eth_length, eth_protocol = print_Etho(igmp[i])
 			    iphl, protocol = print_IP_Linux(igmp[i], eth_length)
 			    print_IGMP(igmp[i], iphl+eth_length)
 			else:
@@ -144,8 +150,8 @@ def sniff_Linux():
 		elif(choice == '5'):
 		    other = dict_Packets['OTHER']
 		    for i in range(0, len(other)):
-			if(keepCount <= limit):
-			    eth_length = print_Etho(packet)
+			if(keepCount < limit):
+			    eth_length, eth_protocol = print_Etho(other[i])
 			    iphl, protocol = print_IP_Linux(other[i],eth_length)
 			    print "\nUnparsed protocol found\n!"
 			else:
@@ -153,6 +159,16 @@ def sniff_Linux():
 			    keepCount = 0
 			keepCount += 1
 		elif(choice == '6'):
+		    arp = dict_Packets['ARP']
+		    for i in range(0, len(arp)):
+			if(keepCount < limit):
+			     eth_length, eth_protocol = print_Etho(arp[i])
+			     print "ARP query"
+			else:
+			     raw_input("Press Enter to see next "+ str(limit) +" entries.")
+			     keepCount = 0
+			keepCount += 1
+		elif(choice == '7'):
 		    break
 		else:
 		    print "Invalid option!\n"
@@ -170,10 +186,11 @@ def print_Etho(packet):
 	eth_length = 14
 	eth_header = packet[:eth_length]
 	eth = unpack('!6s6sH', eth_header)
-	eth_protocol = socket.ntohs(eth[2])
-	print '\n\nDestination MAC: ' + eth_addr(packet[:6]) + ' Source MAC: ' + eth_addr(packet[6:12]) + ' Protocol: ' + str(eth_protocol)
+	#eth_protocol = socket.ntohs(eth[2])
+	eth_protocol = eth[2]
+	print '\n\nDestination MAC: ' + eth_addr(packet[:6]) + ' Source MAC: ' + eth_addr(packet[6:12]) + ' Protocol: ' + hex(eth_protocol)
 
-	return eth_length
+	return eth_length, hex(eth_protocol)
 
 #Convert a string of 6 characters of ethernet address into a dash separated hex string
 def eth_addr (a) :
@@ -266,7 +283,7 @@ This function is the one that stores the packets being sniffed. As they are snif
 is unpacked and the protocol checked so that it can be filtered and be placed into the
 appropriate list which will later be added to a dictionary for easy navigation    
 """ 
-def store_data_Linux(packet, ALL, TCP, UDP, ICMP, IGMP, Other):
+def store_data_Linux(packet, ALL, TCP, UDP, ICMP, IGMP, Other, ARP):
      """
      Will be using a list to store all similar protocols(TCP,UDP,ICMP)
      Each list will be stored in a dictionary where the key is the protocol
@@ -275,11 +292,17 @@ def store_data_Linux(packet, ALL, TCP, UDP, ICMP, IGMP, Other):
      Dict = {'protocol':[[packet data], [packet data], [packet data]]...]}
      """
      eth_length = 14
+     ethData = packet[:eth_length]
+     eth = unpack("!6s6sH",ethData)
+     eth_protocol = hex(eth[2])
+
      IpData = packet[eth_length:eth_length+20]
      ipDatagram = unpack("!BBHHHBBH4s4s", IpData)
      ALL.append(packet)
      protocol = ipDatagram[6]
-     if(protocol == 6):
+     if(str(eth_protocol) == "0x806"):
+         ARP.append(packet)
+     elif(protocol == 6):
          TCP.append(packet)
      elif(protocol == 17):
         UDP.append(packet)
@@ -579,8 +602,8 @@ Function that displays the menu for the user, offering multiple options when vie
 the captured and stored data packets
 """
 def show_Menu():
-    numbers = [0,1,2,3,4,5,6]
-    options = ['ALL','TCP','UDP','ICMP','IGMP','OTHER','EXIT']
+    numbers = [0,1,2,3,4,5,6,7]
+    options = ['ALL','TCP','UDP','ICMP','IGMP','OTHER','ARP','EXIT']
     print "Select one of the following\n"
     for i in range(0, len(numbers)):
         if(i == len(numbers)-1):
@@ -593,7 +616,7 @@ def show_Menu():
 This function just creates the dictionary to store the different protocols we
 want to segregate
 """
-def create_Dict(ALL, TCP, UDP, ICMP, IGMP, Other):
+def create_Dict(ALL, TCP, UDP, ICMP, IGMP, Other, ARP):
     #initialize an empty dictionary and fill it with the options/lists we want    
     dict_Packets = {}
     dict_Packets["ALL"] = ALL
@@ -602,6 +625,7 @@ def create_Dict(ALL, TCP, UDP, ICMP, IGMP, Other):
     dict_Packets["ICMP"] = ICMP
     dict_Packets["IGMP"] = IGMP
     dict_Packets["OTHER"] = Other
+    dict_Packets["ARP"] = ARP
     
     return dict_Packets
 

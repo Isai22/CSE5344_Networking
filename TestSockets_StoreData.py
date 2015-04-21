@@ -14,8 +14,9 @@ NOTES:
     
     to get the throughput we can have a server running which our program will bind to and
     send a file, we measure the time for it and that will give us the RTT. Also we can store the data
-    so that we can then filter through it according to the user. Need to calculate the average datagram size
-    as well as the diameter(TTL window) of the network.
+    so that we can then filter through it according to the user. Need to calculate the diameter(TTL window)
+    of the network. Need to plot the congestion window data aswell(timing and ploting it in a graph)
+    -possibly use a 2D-array to store time and congestion window
     
     
 """
@@ -24,9 +25,76 @@ import socket
 import sys
 from struct import *
 import re
+import xlsxwriter
 
 def main() :
     sniff_packets()
+    #read_ethernet()
+ 
+
+def read_ethernet() :
+    #grab the name of the host by making this call:getHostbyname()
+    HOST = socket.gethostbyname(socket.gethostname())
+    #creation of the socket to be used throughout the program
+    try :        
+        s = socket.socket(socket.AF_INET, socket.SOCK_RAW)
+        print 'Successfully Created Raw Socket!\n'
+        #bind the host ot an open port
+        s.bind((HOST, 0))
+     
+        #Include IP headers
+        s.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
+        
+        #receive all packages
+        s.ioctl(socket.SIO_RCVALL, socket.RCVALL_ON)
+        print "\nPacket previews will be displayed, after sniffing begins, press CTRL-C when ready to stop sniffing.\n"
+        raw_input('Press Enter to continue')
+        #loop that will print a small preview of the IP header for the user to see and capture the packets        
+        while True:
+            #receive the data packets of up to size 65565
+            frame = s.recvfrom(65565)
+            packet = frame[0]
+            eth_length = 14
+            ethernet = packet[:eth_length]
+            eth = unpack('!6s6sH' , ethernet)
+            eth_protocol = socket.ntohs(eth[2])
+            print 'Destination MAC : ' + eth_addr(packet[0:6]) + ' Source MAC : ' + eth_addr(packet[6:12]) + ' Protocol : ' + str(eth_protocol)
+ 
+    #exception to deal with issues in creation of the socket
+    except socket.error, msg:
+        print 'Socket could not be created. Error code : ' + str(msg[0]) + ' Message ' + msg[1]
+        sys.exit()
+    #exception to catch the command CTRL-C and continue with the program
+    except KeyboardInterrupt :
+        print "No More Sniffing!"
+        
+#Convert a string of 6 characters of ethernet address into a dash separated hex string
+def eth_addr (a) :
+  b = "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x" % (ord(a[0]) , ord(a[1]) , ord(a[2]), ord(a[3]), ord(a[4]) , ord(a[5]))
+  return b
+    
+def create_workbook(dictionary):
+    packets = dictionary['TCP']
+    numPackets = len(packets)
+    workbook = xlsxwriter.Workbook('congestion.xlsx')
+    worksheet = workbook.add_worksheet()
+    for i in range(0, numPackets):
+        packet = packets[i]
+        ipHeader = packet[0:20]
+        #unpack the data found in the ip datagram, there are 10 items
+        ipDatagram = unpack("!BBHHHBBH4s4s",ipHeader)
+        version_IPHeaderLength = ipDatagram[0]
+        ipHeaderLength = version_IPHeaderLength & 0xF
+        #
+        iphl = ipHeaderLength * 4        
+        
+        tcp_header = packet[iphl:iphl+20]
+        #unpack the tcp header information                
+        tcph = unpack('!HHLLBBHHH', tcp_header)
+        #the congestion window
+        conge_win = tcph[6]
+        worksheet.write('A'+str(i), conge_win)
+    workbook.close()
     
 """
 Sniff_Packets is a funtion that will create a socket and then run the necessary while loops for the 
@@ -78,7 +146,9 @@ def sniff_packets():
     #print "Number of packets {}, Number of TCP {}".format(len(packet_List), len(TCP_List))
     
     #assign to a dictionary all the list of different protocols
-    dict_Packets = create_Dict(packet_List, TCP_List, UDP_List, ICMP_List, IGMP_List, Other_List)    
+    dict_Packets = create_Dict(packet_List, TCP_List, UDP_List, ICMP_List, IGMP_List, Other_List) 
+    create_workbook(dict_Packets)    
+    
     #initialize a counter to keep track of how many packets to print at a time and assign a limit    
     keepCount = 0
     limit = 10
@@ -367,22 +437,31 @@ This will return the largest packet and the total cumulative length of all the p
 """         
 def max_total(packetList):
 
+    totalTTL = 0
     totalsize = 0    
-    maxsize = 0
-
+    maxsize = -1
+    maxTTL = -1
+    numPackets = len(packetList)
     for i in range(0, len(packetList)):
         ipdatagram = packetList[i]
         ipdata = ipdatagram[:20]        
         ipheader = unpack("!BBHHHBBH4s4s",ipdata)
         length = ipheader[4]
+        ttl = ipheader[5]
+        totalTTL += ttl
         totalsize += length
         if(maxsize<length):
             maxsize = length
+        if(maxTTL < ttl):
+            maxTTL = ttl
             
-    average = totalsize/len(packetList)
+    averageSize = float(totalsize/numPackets)
+    averageTTL = float(totalTTL/numPackets)
             
     print "The Maximum sized packet is: {}\n".format(maxsize)
-    print "The Average packet size for this session is: {}\n".format(average)
+    print "The Average packet size for this session is: {}\n".format(averageSize)
+    print "The Maximum Time To Live is: {}".format(maxTTL)    
+    print "The Average Time To Live is: {}".format(averageTTL)
             
 """
 This function is the one that stores the packets being sniffed. As they are sniffed the IP header
@@ -412,161 +491,6 @@ def store_data(packet, ALL, TCP, UDP, ICMP, IGMP, Other):
      else:
          Other.append(packet)
     
-
-"""   
-def read_data() :
-
-    
-    HOST = socket.gethostbyname(socket.gethostname())    
-    
-    try :        
-        s = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_IP)
-        print 'Successfully Created Raw Socket!'
-    
-        s.bind((HOST, 0))
-     
-        #Include IP headers
-        s.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
-        
-        #receive all packages
-        s.ioctl(socket.SIO_RCVALL, socket.RCVALL_ON)
-        count = 0
-        print "{TCP, UDP, ICMP}"
-        option = raw_input("Pick an Option: \n")
-        option = option.upper()
-        while True:
-            packet = s.recvfrom(65565)
-            #print 'hi'
-            #print "\nOriginal IP: "+str(packet[1])
-            packet = packet[0]
-            
-            #parse ethernet header
-            eth_length = 14
-            eth_header = packet[:eth_length]
-            eth = unpack('!6s6sH' , eth_header)
-            eth_protocol = socket.ntohs(eth[2])
-            print "Protocol: "+ str(eth_protocol)
-            
-            
-            ipHeader = packet[0:20]
-            #unpack the data found in the ip datagram, there are 10 items
-            ipDatagram = unpack("!BBHHHBBH4s4s",ipHeader)
-            version_IPHeaderLength = ipDatagram[0]
-            ipVer = version_IPHeaderLength >> 4
-            #0xF is 15 and the '&' operand copies a bit to the result if it exists
-            #in both operands            
-            ipHeaderLength = version_IPHeaderLength & 0xF
-            #
-            iphl = ipHeaderLength * 4
-            TOS = ipDatagram[1]            
-            totalLength = ipDatagram[2]
-            ID = ipDatagram[3]
-            flags = ipDatagram[4]
-            fragments = ipDatagram[4] & 0x1FFF
-            #time to live
-            ttl = ipDatagram[5]
-            #transport protocol
-            protocol = ipDatagram[6]
-            checksum = ipDatagram[7]
-            #source and destination ip addresses
-            sourceIP = socket.inet_ntoa(ipDatagram[8])
-            destinationIP = socket.inet_ntoa(ipDatagram[9])
-            if(ipVer == 6):
-                print "version 6"
-                
-            print "\n\nVersion: \t\t" + str(ipVer)
-            print "Header Length: \t\t" + str(iphl) + " bytes"
-            #print "Type of Service: \t" + TypeOfService(TOS)
-            #print "Length:\t\t\t" + str(totalLength)
-            #print "ID:\t\t\t" + str(hex(ID)) + '(' +str(ID) + ')'
-            print "Flags:\t\t\t" + getFlags(flags)
-            #print "Fragment Offset:\t" + str(fragments)
-            #print "TTL:\t\t\t" + str(ttl)
-            print "Protocol:\t\t" + getProtocol(protocol)
-            #print "Checksum:\t\t" + str(checksum)
-            print "SourceIP:\t\t" + sourceIP
-            print "DestinationIP:\t\t" + destinationIP
-            
-            if(protocol == 6 and option == 'TCP'):
-                
-                tcp_header = packet[iphl:iphl+20]
-                #unpack the tcp header information                
-                tcph = unpack('!HHLLBBHHH', tcp_header)
-                source_port = tcph[0]
-                destination_port = tcph[1]
-                sequence = tcph[2]
-                acknowledgment = tcph[3]
-                doff_reserved = tcph[4]
-                tcph_length = doff_reserved >> 4
-                
-                #extract all the flags from the tcp header
-                getTCPFlags(tcph[4], tcph[5])     
-                
-                conge_win = tcph[6]
-                
-                print 'Source Port {}, Destination Port {}, sequence {}'.format(source_port, destination_port, sequence)
-                print 'Acknowledgement {}, TCP Length {}, Congestion Window: {}'.format(acknowledgment, tcph_length, conge_win)
-                
-                header_size = iphl + tcph_length * 4
-                data_size = len(packet) - header_size
-                data = packet[header_size:]                
-              
-            elif(protocol == 17 and option == 'UDP'):
-                udpl = 8
-                udp_header = packet[iphl:iphl+8]
-                #unpack the udp header which is much smaller than TCP
-                udph = unpack('!HHHH', udp_header)
-                
-                source_port = udph[0]
-                destination_port = udph[1]
-                length = udph[2]
-                checksum = udph[3]
-                
-                print 'Source Port: {}, Destination Port: {}'.format(source_port, destination_port)
-                print 'length: {}, checksum: {}'.format(length, checksum)                
-                
-                header_size = iphl + udpl
-                data = packet[header_size:]
-                
-            elif(protocol == 1 and option == 'ICMP'):
-                icmpl = 8
-                icmp_header = packet[iphl:iphl+icmpl]
-                #unpack the ICMP header which is only 4bytes
-                icmp = unpack('!BBHHH',icmp_header)
-                icmp_type = icmp[0]
-                icmp_code = icmp[1]
-                icmp_identifier = icmp[3]
-                icmp_sequence = icmp[4]
-                icmp_checksum = icmp[2]
-                
-                print "Type: {}, Code: {}, Checksum: {}".format(icmp_type, icmp_code, icmp_checksum)
-                print "Identifier: {}, Sequence: {}".format(icmp_identifier, icmp_sequence)
-            else:
-                print "\n\nOther Protocol\n\n"                
-            count = count + 1
-            if(count == 10):
-                answer = raw_input('Would you like to continue: Y|N \n')
-                answer = answer.lower()                
-                if(answer == 'y'):
-                    count = 0;
-                else:
-                    sys.exit()                
-            
-                                  
-    except socket.error, msg:
-        print 'Socket could not be created. Error code : ' + str(msg[0]) + ' Message ' + msg[1]
-        sys.exit()
-    except KeyboardInterrupt :
-        print "Interrupted by User!"
-    
-    
-    print "This is after control-C"
-    while True:
-        print "nothing"
-    # disable promiscuous mode
-    s.ioctl(socket.SIO_RCVALL, socket.RCVALL_OFF)
-    s.close()
-"""
     
 #get time of service - 8bits    
 def TypeOfService(data):

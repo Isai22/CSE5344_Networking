@@ -22,11 +22,16 @@ NOTES:
 
 import socket
 import sys
+import platform
 from struct import *
 import re
 
 def main() :
-    sniff_Linux()
+    os = platform.system()
+    if(os == 'Linux'):
+        sniff_Linux()
+    elif(os == 'Windows'):
+	sniff_packets()
 
 
 def sniff_Linux():    
@@ -40,6 +45,7 @@ def sniff_Linux():
 	ARP_List = []
 	try:
 	    	s = socket.socket( socket.AF_PACKET , socket.SOCK_RAW , socket.ntohs(0x0003))
+		print "Linux"
 		print "\nPacket previews will be displayed, after sniffing begins, press CTRL-C when ready to stop sniffing.\n"
 	        raw_input('Press Enter to continue')
         	#loop that will print a small preview of the IP header for the user to see and capture the packets        
@@ -163,7 +169,7 @@ def sniff_Linux():
 		    for i in range(0, len(arp)):
 			if(keepCount < limit):
 			     eth_length, eth_protocol = print_Etho(arp[i])
-			     print "ARP query"
+			     print_ARP(arp[i], eth_length)
 			else:
 			     raw_input("Press Enter to see next "+ str(limit) +" entries.")
 			     keepCount = 0
@@ -231,7 +237,22 @@ def IP_preview_Linux(packet, eth_length):
             #this will be used to find the max and average size of the packets captured
             return totalLength
             
+def print_ARP(packet, eth_length):
+	ARP_data = packet[eth_length:eth_length+28]
+	#unpack the data from the ARP query
+	ARP_stuff = unpack("!HHBBH6s4s6s4s", ARP_data)
+	hard_type = ARP_stuff[0]
+	proto_type = ARP_stuff[1]
+	hard_size = ARP_stuff[2]
+	proto_size = ARP_stuff[3]
+	operation = ARP_stuff[4]
+	Mac_source = ARP_stuff[5]
+	Ip_source = ARP_stuff[6]
+	Mac_Destination = ARP_stuff[7]
+	Ip_Destination = ARP_stuff[8]
 
+	print "Hardware Type: {}, Protocol Type: {}, Hardware Size: {}, Protocol Size: {} bytes, Operation: {}".format(hard_type, hex(proto_type), hard_size, proto_size, operation)
+	print "Mac Source address: {}, Mac Destination address: {}, IP Source address: {}, IP Destination address: {}".format(eth_addr(Mac_source), eth_addr(Mac_Destination), socket.inet_ntoa(Ip_source), socket.inet_ntoa(Ip_Destination))
 
 """
 This function will print the IP header information, it does the unpacking and deciphering of the data
@@ -318,11 +339,6 @@ LINUX
 ##################################################################################################################################################
 WINDOWS
 """
-
-
-
-
-
 
 
 

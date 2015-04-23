@@ -14,8 +14,9 @@ NOTES:
     
     to get the throughput we can have a server running which our program will bind to and
     send a file, we measure the time for it and that will give us the RTT. Also we can store the data
-    so that we can then filter through it according to the user. Need to calculate the average datagram size
-    as well as the diameter(TTL window) of the network.
+    so that we can then filter through it according to the user. 
+
+    Note to self: Include dealing with IPv6 data packets!
     
     
 """
@@ -25,16 +26,19 @@ import sys
 import platform
 from struct import *
 import re
+import matplotlib.pyplot as plt
+import Tkinter as Tk
 
 def main() :
+    #Determine which operating system is in use: windows or linux
     os = platform.system()
     if(os == 'Linux'):
-        sniff_Linux()
+        sniff_Linux(os)
     elif(os == 'Windows'):
-	sniff_packets()
+	sniff_packets(os)
 
 
-def sniff_Linux():    
+def sniff_Linux(os):    
 	#create all the list that will contain the packets, segragated by protocols
 	packet_List = []
     	TCP_List = []
@@ -43,6 +47,10 @@ def sniff_Linux():
     	IGMP_List = []
     	Other_List = []
 	ARP_List = []
+	
+	"""
+	Sniffer Begins here
+	"""
 	try:
 	    	s = socket.socket( socket.AF_PACKET , socket.SOCK_RAW , socket.ntohs(0x0003))
 		print "Linux"
@@ -56,7 +64,7 @@ def sniff_Linux():
         	    	packet = packet[0]
 			#print the ethernet data
 			eth_length, eth_protocol = print_Etho(packet)        	    	
-			if(eth_protocol == '0x800'):			
+			if(eth_protocol == "0x800"):			
 				#allows the user to preview the Ip header info and help in choosing when to stop
         	    		IP_preview_Linux(packet, eth_length)
 			else:
@@ -183,11 +191,113 @@ def sniff_Linux():
 	#server/client code will go here and determine throughput    
 	print "Successfully implemented the First Part!"
 	#print out the maxsize and the average of the data session    
-	max_total(packet_List)
-    
-	s.close()    
+	max_total(dict_Packets['ALL'])
+	#s.close()    
+
+	"""
+	Client Server will be created and go here 
+	"""
 
 
+	"""
+	Congestion window will be displayed by code below, it will iterate through all TCP packets to determine window sizes
+	"""
+	#create a tcp connection to be used to determine the local IP address to be used in finding congestion windows
+	temp_s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+	temp_s.connect(('8.8.8.8', 0))  # connecting to a UDP address doesn't send packets
+	local_ip_address = temp_s.getsockname()[0]
+	temp_s.close()
+	
+	"""
+	Make the call to diameter to get the diameter of the network using TCP packets
+	"""
+	print "========================================"
+	print "================DIAMETER================"
+	print "========================================"
+	complement = diameter(os, dict_Packets['TCP'], local_ip_address)
+	print "The Diameter of the Network is: {}\n".format(complement)
+	
+	#ask the user to input whether they want to see the Congestion 
+	answer = raw_input("Would you like to see the Congestion Windows?\n")
+	answer = answer.lower()
+	#loop only exits accourding to the user input, only 'n' or 'N' will exit
+	while True:
+		if(answer == 'y'):
+			#lists that will be appended to and num is simply to keep track of which packet we have(1,2,3..N)
+			list_windows = []
+			num_packet = []
+			num = 0
+			#extrack the tcp list from the dictionary
+			tcp = dict_Packets['TCP']
+			#search through all tcp packets to find any outgoing, meaning that source IP is this very machine
+			for i in range(0, len(tcp)):
+				num = congestion_chart(tcp[i], local_ip_address, num, list_windows, num_packet)
+			#lines to call the graph to be displayed in a GUI using the Tk packet. After graph the while loop is broken out of		
+			plt.plot(num_packet, list_windows)
+			plt.show()
+			break
+		elif(answer == 'n'):
+			break
+		else:
+			answer = raw_input("Invalid input, try again: Y | N\n")
+			answer = answer.lower()
+	#close the raw socket before ending the program
+	s.close()
+	sys.exit()
+"""
+Scope the diameter of the Network by checking the TTL of a received packet to 64
+given that TCP packets have a default TTL of 64 hops
+"""
+def diameter(os, packet_list, addr):
+	if(os == "Linux"):
+		start = 14
+		stop = start+20	
+	elif(os == "Windows"):
+		start = 0
+		stop = start+20
+	minimumTTL = 1000
+	for i in range(0, len(packet_list)):
+		data = packet_list[i]
+		ipDatagram = data[start:stop]
+		ipHeader = unpack("!BBHHHBBH4s4s",ipDatagram)
+		ttl = ipHeader[5]
+		source = socket.inet_ntoa(ipHeader[8])
+		if(source != addr):
+			if(minimumTTL > ttl):
+				minimumTTL = ttl
+	return (64-minimumTTL)
+
+"""
+Function that will be take the TCP packets and sift through to find any outgoing and append the congestion/receive window
+to a list that is passed in as a parameter and the value returned is the number as it is incremented by one
+packet = actual packet passed
+addr = the IP address of the machine running the code
+num = which packet is being appended, it is increasing order(1,2,3,... N)
+list_windows = is the list that will contain all the window values
+num_packet = the list that holds all the numbers form 1 up to N
+"""
+def congestion_chart(packet, addr, num, list_windows, num_packet):
+	
+	eth_length = 14
+	ip_length = eth_length+20
+	#unpack the IP header data
+	ipHeader = packet[eth_length:ip_length]
+	ipDatagram = unpack("!BBHHHBBH4s4s",ipHeader)
+	source = socket.inet_ntoa(ipDatagram[8])
+	#only need to compare the source IP address to the address of this machine 
+	if(source == addr):
+		num += 1
+		tcp_stuff = packet[ip_length:ip_length+20]
+		tcp_header = unpack("!HHLLBBHHH",tcp_stuff)
+		list_windows.append(tcp_header[6])
+		num_packet.append(num)
+	return num
+
+
+"""
+Function that will take in a packet as the parameter and then extract the ethernet information and unpack it to
+display it to the user. It returns the ethernet length of 14 and the protocol in hexadecimal format
+"""
 def print_Etho(packet):
 	eth_length = 14
 	eth_header = packet[:eth_length]
@@ -290,7 +400,7 @@ def print_IP_Linux(packet, eth_length):
     #print "ID:\t\t\t" + str(hex(ID)) + '(' +str(ID) + ')'
     print "Flags:\t\t\t" + getFlags(flags)
     #print "Fragment Offset:\t" + str(fragments)
-    #print "TTL:\t\t\t" + str(ttl)
+    print "TTL:\t\t\t" + str(ttl)
     print "Protocol:\t\t" + getProtocol(protocol)
     #print "Checksum:\t\t" + str(checksum)
     print "SourceIP:\t\t" + sourceIP
@@ -316,7 +426,6 @@ def store_data_Linux(packet, ALL, TCP, UDP, ICMP, IGMP, Other, ARP):
      ethData = packet[:eth_length]
      eth = unpack("!6s6sH",ethData)
      eth_protocol = hex(eth[2])
-
      IpData = packet[eth_length:eth_length+20]
      ipDatagram = unpack("!BBHHHBBH4s4s", IpData)
      ALL.append(packet)
@@ -349,7 +458,7 @@ Sniff_Packets is a funtion that will create a socket and then run the necessary 
 rest of the program to run effectively, It is the main method calling helper methods. Everything will
 run from this single parent function
 """
-def sniff_packets():
+def sniff_packets(os):
     #create all the list that will contain the packets, segragated by protocols
     packet_List = []
     TCP_List = []
@@ -683,6 +792,14 @@ Funtion that will add all the total lenghts and keep track of the largest packet
 This will return the largest packet and the total cumulative length of all the packets
 """         
 def max_total(packetList):
+    #check which operating system is being used to know which lenght to use
+    os = platform.system()
+    if(os == "Linux"):
+	start = 14
+	headerLength = 14+20
+    elif(os == "Windows"):
+	start = 0
+	headerLength = 20
 
     totalTTL = 0
     totalsize = 0    
@@ -691,7 +808,7 @@ def max_total(packetList):
     numPackets = len(packetList)
     for i in range(0, len(packetList)):
         ipdatagram = packetList[i]
-        ipdata = ipdatagram[:20]        
+        ipdata = ipdatagram[start:headerLength]        
         ipheader = unpack("!BBHHHBBH4s4s",ipdata)
         length = ipheader[4]
         ttl = ipheader[5]
@@ -705,8 +822,8 @@ def max_total(packetList):
     averageSize = float(totalsize/numPackets)
     averageTTL = float(totalTTL/numPackets)
             
-    print "The Maximum sized packet is: {}\n".format(maxsize)
-    print "The Average packet size for this session is: {}\n".format(averageSize)
+    print "\nThe Maximum sized packet is: {}".format(maxsize)
+    print "The Average packet size for this session is: {}".format(averageSize)
     print "The Maximum Time To Live is: {}".format(maxTTL)    
     print "The Average Time To Live is: {}".format(averageTTL)
             

@@ -26,6 +26,7 @@ import sys
 import platform
 from struct import *
 import re
+import time
 import matplotlib.pyplot as plt
 import Tkinter as Tk
 
@@ -78,7 +79,7 @@ def sniff_Linux(os):
         	sys.exit()
     	#exception to catch the command CTRL-C and continue with the program
     	except KeyboardInterrupt :
-        	print "No More Sniffing!"
+        	print "\nNo More Sniffing!"
 
 	#assign to a dictionary all the list of different protocols
 	dict_Packets = create_Dict(packet_List, TCP_List, UDP_List, ICMP_List, IGMP_List, Other_List, ARP_List)    
@@ -99,6 +100,8 @@ def sniff_Linux(os):
                    			iphl, protocol = print_IP_Linux(All[i], eth_length)
 					if(str(eth_protocol) == '0x806'):
 						print "This is an ARP query"
+					elif(str(eth_protocol) == '0x86d'):
+						print "This is IPv6"
                     			elif(protocol == 6):
                         			print_TCP(All[i], iphl+eth_length)
                     			elif(protocol == 17):
@@ -243,27 +246,47 @@ def sniff_Linux(os):
 		else:
 			answer = raw_input("Invalid input, try again: Y | N\n")
 			answer = answer.lower()
+
+	throughput()
 	#close the raw socket before ending the program
 	s.close()
 	sys.exit()
 
 
 def throughput():
+	#variables used
+	timeArr = []
+	sizeArr  = []
+	totalTime = 0
+	
 	#create the port number 12000 and the serverName set to 'localhost'
 	serverPort = 12000
-	HOST = socket.gethostbyname('www.google.com')
 	serverName = 'localhost'
 
 	clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	clientSocket.connect((serverName, serverPort))
-	i = 0
-	message = 'Ping from me'
-	while(i<10):
-		clientSocket.send(message)
-		response = clientSocket.recv(65565)
-		print response
-		i += 1
+	size = 20
+	for i in range(0, 500):
+		data = 'x' * size
+		for k in range(0, 10):
+			t1 = time.time()
+			clientSocket.send(data)
+			response = clientSocket.recv(65565)
+			t2 = time.time()
+			totalTime += t2-t1
+		timeArr.append(float(totalTime)/1000)
+		sizeArr.append(size)
+		size += 20
+	fig = plt.figure()
+	fig.suptitle('Throughput', fontsize=12, fontweight='bold')
+	ax = fig.add_subplot(111)
+	ax.set_xlabel('Time')
+	ax.set_ylabel('File Size')
+	ax.plot(sizeArr, timeArr)
+	plt.show()
 	clientSocket.close()
+
+	
 
 
 
@@ -292,7 +315,9 @@ def diameter(os, packet_list, addr):
 			numPacks += 1
 			if(minimumTTL > ttl):
 				minimumTTL = ttl
-	averageTTL = (float(total_TTL)/numPacks)
+	averageTTL = 0
+	if(numPacks > 0):
+		averageTTL = (float(total_TTL)/numPacks)
 	return (64-minimumTTL), averageTTL
 
 """
@@ -850,13 +875,15 @@ def max_total(os, packetList):
 	    print "Unrecognized Operating System!\n"
 	    sys.exit()
     print totalsize, totalTTL, numPackets
-    averageSize = float(totalsize)/numPackets
-    averageTTL = float(totalTTL)/numPackets
-            
-    print "\nThe Maximum sized packet is: {}".format(maxsize)
-    print "The Average packet size for this session is: {}".format(averageSize)
-    print "The Maximum Time To Live is: {}".format(maxTTL)    
-    print "The Average Time To Live is: {}".format(averageTTL)
+    if(numPackets > 0):
+	    averageSize = float(totalsize)/numPackets
+	    averageTTL = float(totalTTL)/numPackets
+	    print "\nThe Maximum sized packet is: {}".format(maxsize)
+	    print "The Average packet size for this session is: {}".format(averageSize)
+	    print "The Maximum Time To Live is: {}".format(maxTTL)    
+	    print "The Average Time To Live is: {}".format(averageTTL)
+    else:
+	    print "No IPv4 Packets read!"
 """
 Function that will help reduce redundacy in max_total function, takes in:
 packet - is the packet to be unpacked

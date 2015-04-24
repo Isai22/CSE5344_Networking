@@ -47,6 +47,7 @@ def sniff_Linux(os):
     	IGMP_List = []
     	Other_List = []
 	ARP_List = []
+	IPv6_List = []
 	
 	"""
 	Sniffer Begins here
@@ -70,7 +71,7 @@ def sniff_Linux(os):
 			else:
 				print "ARP Query!"
         	    	#store every packet being sniffed in the appropriate list which will be later placed in a dictionary
-        	    	store_data_Linux(packet, packet_List, TCP_List, UDP_List, ICMP_List, IGMP_List, Other_List, ARP_List)
+        	    	store_data_Linux(packet, packet_List, TCP_List, UDP_List, ICMP_List, IGMP_List, Other_List, ARP_List, IPv6_List)
     	#exception to deal with issues in creation of the socket
     	except socket.error , msg:
         	print 'Socket could not be created. Error code : ' + str(msg[0]) + ' Message ' + msg[1]
@@ -191,12 +192,13 @@ def sniff_Linux(os):
 	#server/client code will go here and determine throughput    
 	print "Successfully implemented the First Part!"
 	#print out the maxsize and the average of the data session    
-	max_total(dict_Packets['ALL'])
+	max_total(os, dict_Packets['ALL'])
 	#s.close()    
 
 	"""
 	Client Server will be created and go here 
 	"""
+	
 
 
 	"""
@@ -214,11 +216,11 @@ def sniff_Linux(os):
 	print "========================================"
 	print "================DIAMETER================"
 	print "========================================"
-	complement = diameter(os, dict_Packets['TCP'], local_ip_address)
-	print "The Diameter of the Network is: {}\n".format(complement)
+	complement, aveComp = diameter(os, dict_Packets['TCP'], local_ip_address)
+	print "The Diameter of the Network is: {}\nThe Average Diameter of the Network is: {}".format(complement, aveComp)
 	
 	#ask the user to input whether they want to see the Congestion 
-	answer = raw_input("Would you like to see the Congestion Windows?\n")
+	answer = raw_input("Would you like to see the Congestion Windows? Y | N\n")
 	answer = answer.lower()
 	#loop only exits accourding to the user input, only 'n' or 'N' will exit
 	while True:
@@ -244,6 +246,27 @@ def sniff_Linux(os):
 	#close the raw socket before ending the program
 	s.close()
 	sys.exit()
+
+
+def throughput():
+	#create the port number 12000 and the serverName set to 'localhost'
+	serverPort = 12000
+	HOST = socket.gethostbyname('www.google.com')
+	serverName = 'localhost'
+
+	clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	clientSocket.connect((serverName, serverPort))
+	i = 0
+	message = 'Ping from me'
+	while(i<10):
+		clientSocket.send(message)
+		response = clientSocket.recv(65565)
+		print response
+		i += 1
+	clientSocket.close()
+
+
+
 """
 Scope the diameter of the Network by checking the TTL of a received packet to 64
 given that TCP packets have a default TTL of 64 hops
@@ -255,6 +278,8 @@ def diameter(os, packet_list, addr):
 	elif(os == "Windows"):
 		start = 0
 		stop = start+20
+	total_TTL = 0
+	numPacks = 0
 	minimumTTL = 1000
 	for i in range(0, len(packet_list)):
 		data = packet_list[i]
@@ -263,9 +288,12 @@ def diameter(os, packet_list, addr):
 		ttl = ipHeader[5]
 		source = socket.inet_ntoa(ipHeader[8])
 		if(source != addr):
+			total_TTL += (64-ttl)
+			numPacks += 1
 			if(minimumTTL > ttl):
 				minimumTTL = ttl
-	return (64-minimumTTL)
+	averageTTL = (float(total_TTL)/numPacks)
+	return (64-minimumTTL), averageTTL
 
 """
 Function that will be take the TCP packets and sift through to find any outgoing and append the congestion/receive window
@@ -337,8 +365,7 @@ def IP_preview_Linux(packet, eth_length):
             sourceIP = socket.inet_ntoa(ipDatagram[8])
             destinationIP = socket.inet_ntoa(ipDatagram[9])
             
-            print "\n\nVersion: \t\t" + str(ipVer)
-            print "Header Length: \t\t" + str(iphl) + " bytes"
+            print "Version: \t\t" + str(ipVer)
             print "Length:\t\t\t" + str(totalLength)
             print "Protocol:\t\t" + getProtocol(protocol)
             #print "SourceIP:\t\t" + sourceIP
@@ -414,7 +441,7 @@ This function is the one that stores the packets being sniffed. As they are snif
 is unpacked and the protocol checked so that it can be filtered and be placed into the
 appropriate list which will later be added to a dictionary for easy navigation    
 """ 
-def store_data_Linux(packet, ALL, TCP, UDP, ICMP, IGMP, Other, ARP):
+def store_data_Linux(packet, ALL, TCP, UDP, ICMP, IGMP, Other, ARP, IPv6):
      """
      Will be using a list to store all similar protocols(TCP,UDP,ICMP)
      Each list will be stored in a dictionary where the key is the protocol
@@ -432,6 +459,8 @@ def store_data_Linux(packet, ALL, TCP, UDP, ICMP, IGMP, Other, ARP):
      protocol = ipDatagram[6]
      if(str(eth_protocol) == "0x806"):
          ARP.append(packet)
+     elif(str(eth_protocol) == '0x86d'):
+         IPv6.append(packet)
      elif(protocol == 6):
          TCP.append(packet)
      elif(protocol == 17):
@@ -498,7 +527,7 @@ def sniff_packets(os):
         sys.exit()
     #exception to catch the command CTRL-C and continue with the program
     except KeyboardInterrupt :
-        print "No More Sniffing!"
+        print "\nNo More Sniffing!"
 
     #print "Number of packets {}, Number of TCP {}".format(len(packet_List), len(TCP_List))
     
@@ -596,7 +625,7 @@ def sniff_packets(os):
     #server/client code will go here and determine throughput    
     print "Successfully implemented the First Part!"
     #print out the maxsize and the average of the data session    
-    max_total(packet_List)
+    max_total(os, packet_List)
     
     # disable promiscuous mode
     s.ioctl(socket.SIO_RCVALL, socket.RCVALL_OFF)
@@ -778,7 +807,6 @@ def IP_preview(packet):
             destinationIP = socket.inet_ntoa(ipDatagram[9])
             
             print "\n\nVersion: \t\t" + str(ipVer)
-            print "Header Length: \t\t" + str(iphl) + " bytes"
             print "Length:\t\t\t" + str(totalLength)
             print "Protocol:\t\t" + getProtocol(protocol)
             #print "SourceIP:\t\t" + sourceIP
@@ -791,7 +819,7 @@ def IP_preview(packet):
 Funtion that will add all the total lenghts and keep track of the largest packet size
 This will return the largest packet and the total cumulative length of all the packets
 """         
-def max_total(packetList):
+def max_total(os, packetList):
     #check which operating system is being used to know which lenght to use
     os = platform.system()
     if(os == "Linux"):
@@ -805,28 +833,51 @@ def max_total(packetList):
     totalsize = 0    
     maxsize = -1
     maxTTL = -1
-    numPackets = len(packetList)
+    numPackets = 0
     for i in range(0, len(packetList)):
-        ipdatagram = packetList[i]
-        ipdata = ipdatagram[start:headerLength]        
-        ipheader = unpack("!BBHHHBBH4s4s",ipdata)
-        length = ipheader[4]
-        ttl = ipheader[5]
-        totalTTL += ttl
-        totalsize += length
-        if(maxsize<length):
-            maxsize = length
-        if(maxTTL < ttl):
-            maxTTL = ttl
-            
-    averageSize = float(totalsize/numPackets)
-    averageTTL = float(totalTTL/numPackets)
+	if(os == 'Linux'):
+		ethoFrame = packetList[i]
+		ethoData = ethoFrame[:start]
+		ethoHeader = unpack('!6s6sH', ethoData)
+		ethoType = hex(ethoHeader[2])
+		if(ethoType == '0x800'):
+			numPackets += 1
+			maxsize, maxTTL, totalTTL, totalsize = maxAveHelper(packetList[i], start, headerLength, maxsize, maxTTL, totalTTL, totalsize)		
+	elif(os == 'Windows'):
+            numPackets += 1
+            maxsize, maxTTL, totalTTL, totalsize = maxAveHelper(packetList[i], start, headerLength, maxsize, maxTTL, totalTTL, totalsize)
+	else:
+	    print "Unrecognized Operating System!\n"
+	    sys.exit()
+    print totalsize, totalTTL, numPackets
+    averageSize = float(totalsize)/numPackets
+    averageTTL = float(totalTTL)/numPackets
             
     print "\nThe Maximum sized packet is: {}".format(maxsize)
     print "The Average packet size for this session is: {}".format(averageSize)
     print "The Maximum Time To Live is: {}".format(maxTTL)    
     print "The Average Time To Live is: {}".format(averageTTL)
-            
+"""
+Function that will help reduce redundacy in max_total function, takes in:
+packet - is the packet to be unpacked
+start - is the start of the IP header
+headerLength - is the length is that, header length
+maxsize and maxTTL - are the values being aggregated to
+"""
+def maxAveHelper(packet, start, headerLength, maxsize, maxTTL, totalTTL, totalsize):
+	ipdata = packet[start:headerLength]        
+	ipheader = unpack("!BBHHHBBH4s4s",ipdata)
+	length = ipheader[2]
+	ttl = ipheader[5]
+	totalTTL += ttl
+	totalsize += length
+	if(maxsize<length):
+	    maxsize = length
+	if(maxTTL < ttl):
+	    maxTTL = ttl
+
+	return maxsize, maxTTL, totalTTL, totalsize
+ 
 """
 This function is the one that stores the packets being sniffed. As they are sniffed the IP header
 is unpacked and the protocol checked so that it can be filtered and be placed into the

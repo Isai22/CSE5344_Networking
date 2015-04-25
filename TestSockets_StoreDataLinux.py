@@ -118,12 +118,14 @@ def sniff_Linux(os):
                 		keepCount += 1
         	#print only the TCP packets
         	elif(choice == '1'):
+			options = attributeOptions(choice)
+			userInput = stringToArr(options)
             		tcp = dict_Packets['TCP']
             		for i in range(0, len(tcp)):
                			if(keepCount < limit):
 					eth_length, eth_protocol = print_Etho(tcp[i])
                     			iphl, protocol = print_IP_Linux(tcp[i], eth_length)
-                    			print_TCP(tcp[i], iphl+eth_length)
+                    			print_TCP(tcp[i], iphl+eth_length, userInput)
                 		else:
                     			raw_input("Press Enter to see next "+ str(limit) +" entries.")
                     			keepCount = 0
@@ -251,6 +253,41 @@ def sniff_Linux(os):
 	#close the raw socket before ending the program
 	s.close()
 	sys.exit()
+
+def stringToArr(string):
+	return string.split( )
+
+def attributeOptions(protocolChosen):
+	print "Which attributes would you like to see?\n"
+	optionsTCP = ['Source Port', 'Destination Port', 'Acknowledgement #', 'Sequence #', 'TCP Length', 'Flags', 'Window Size', 'Checksum']
+	optionsUDP = ['Source Port','Destination Port','Length','Checksum']
+	optionsICMP = ['Type', 'Code', 'Identifier', 'Sequence','Checksum']
+	optionsIGMP = ['Type', 'MaxTime', 'Checksum']
+	optionsARP = ['Hardware Type', 'Protocol Type', 'Hardware Size', 'Protocol Size', 'Operation', 'MAC Source', 'IP Source', 'MAC Destination', 'IP Destination']
+	
+	if(protocolChosen == '0'):
+		print "All will be printed"
+	elif(protocolChosen == '1'):
+		for i in range(0, 8):
+			print "{}: {}".format(i,optionsTCP[i])
+	elif(protocolChosen == '2'):
+		for i in range(0, 4):
+			print "{}: {}".format(i,optionsUCP[i])
+	elif(protocolChosen == '3'):
+		for i in range(0, 5):
+			print "{}: {}".format(i,optionsICMP[i])
+	elif(protocolChosen == '4'):
+		for i in range(0, 3):
+			print "{}: {}".format(i,optionsIGMP[i])
+	elif(protocolChosen == '5'):
+		for i in range(0, 9):
+			print "{}: {}".format(i,optionsARP[i])
+	else:
+		print "Protocol not Parsed"
+		return 0
+	
+	userChoice = raw_input("Enter Choices: ")
+	return userChoice
 
 
 def throughput():
@@ -703,7 +740,9 @@ def print_IP(packet):
 """
 This function prints the TCP data, it unpacks and deciphers the header data
 """
-def print_TCP(packet, iphl):
+def print_TCP(packet, iphl, userInput):
+    optionsTCP = ['Source Port', 'Destination Port', 'Acknowledgement #', 'Sequence #', 'TCP Length', 'Flags', 'Window Size', 'Checksum']
+	
     tcp_header = packet[iphl:iphl+20]
     #unpack the tcp header information                
     tcph = unpack('!HHLLBBHHH', tcp_header)
@@ -719,6 +758,11 @@ def print_TCP(packet, iphl):
     #the congestion window
     conge_win = tcph[6]
     
+
+    for i in range(1, 8):
+	
+
+
     print 'Source Port {}, Destination Port {}, sequence {}'.format(source_port, destination_port, sequence)
     print 'Acknowledgement {}, TCP Length {}, Congestion Window: {}'.format(acknowledgment, tcph_length*4, conge_win)
     
@@ -1026,3 +1070,4 @@ def getTCPFlags(reserved, flags) :
     
 if __name__ == '__main__':
     main()
+

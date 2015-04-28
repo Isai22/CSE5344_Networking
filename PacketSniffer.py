@@ -38,7 +38,7 @@ def main() :
     elif(os == 'Windows'):
 	sniff_packets(os)
 
-
+#Linux versio of the program
 def sniff_Linux(os):    
 	#create all the list that will contain the packets, segragated by protocols
 	packet_List = []
@@ -94,7 +94,9 @@ def sniff_Linux(os):
        		#print all the packets captured in order
        		if(choice == '0'):
          		All = dict_Packets['ALL']
+			#options is the options selected by the user
 			options = attributeOptions(choice)
+			#all options are selected under this choice
 			userInput = ['1','2','3','4','5','6','7','8']
            		for i in range(0, len(All)):
 				eth_length, eth_protocol = print_Etho(All[i])
@@ -115,72 +117,94 @@ def sniff_Linux(os):
                        			print "\nUnparsed procotol found!\n"
         	#print only the TCP packets
         	elif(choice == '1'):
-			options = attributeOptions(choice)
-			userInput = stringToArr(options)
-            		tcp = dict_Packets['TCP']
-            		for i in range(0, len(tcp)):
-				eth_length, eth_protocol = print_Etho(tcp[i])
-                    		iphl, protocol = print_IP_Linux(tcp[i], eth_length)
-                    		print_TCP(tcp[i], iphl+eth_length, userInput)
+			tcp = dict_Packets['TCP']
+			if(len(tcp) == 0):
+				print "\nNo TCP protocols sniffed!"
+			else:
+				options = attributeOptions(choice)
+				userInput = stringToArr(options)
+            			for i in range(0, len(tcp)):
+					print "===============ETHERNET=================="
+					eth_length, eth_protocol = print_Etho(tcp[i])
+					print "==================IP====================="
+                    			iphl, protocol = print_IP_Linux(tcp[i], eth_length)
+                    			print_TCP(tcp[i], iphl+eth_length, userInput)
 		#print only the UDP packets
 		elif(choice == '2'):
-		    options = attributeOptions(choice)
-		    userInput = stringToArr(options)
 		    udp = dict_Packets['UDP']
-		    for i in range(0, len(udp)):
-			eth_length, eth_protocol = print_Etho(udp[i])
-			iphl, protocol = print_IP_Linux(udp[i], eth_length)
-			print_UDP(udp[i], iphl+eth_length, userInput)
+		    if(len(udp) == 0):
+			print "\nNo UDP protocols sniffed!"
+		    else:
+		    	options = attributeOptions(choice)
+		    	userInput = stringToArr(options)
+		    	for i in range(0, len(udp)):
+				print "===============ETHERNET=================="
+				eth_length, eth_protocol = print_Etho(udp[i])
+				print "==================IP====================="
+				iphl, protocol = print_IP_Linux(udp[i], eth_length)
+				print_UDP(udp[i], iphl+eth_length, userInput)
 		#print only the ICMP packets    
 		elif(choice == '3'):
-		     options = attributeOptions(choice)
-		     userInput = stringToArr(options)
 		     icmp = dict_Packets['ICMP']
-		     for i in range(0, len(icmp)):
-			eth_length, eth_protocol = print_Etho(icmp[i])
-			iphl, protocol = print_IP_Linux(icmp[i], eth_length)
-			print_ICMP(icmp[i], iphl+eth_length, userInput)
+		     if(len(icmp) == 0):
+			print "\nNo ICMP protocols sniffed!"
+		     else:
+			options = attributeOptions(choice)
+		  	userInput = stringToArr(options)
+		        for i in range(0, len(icmp)):
+				print "===============ETHERNET=================="
+				eth_length, eth_protocol = print_Etho(icmp[i])
+				print "==================IP====================="
+				iphl, protocol = print_IP_Linux(icmp[i], eth_length)
+				print_ICMP(icmp[i], iphl+eth_length, userInput)
 		#print only the IGMP packets
 		elif(choice == '4'):
-		    options = attributeOptions(choice)
-		    userInput = stringToArr(options)
 		    igmp = dict_Packets['IGMP']
-		    for i in range(0, len(igmp)):
-			eth_length, eth_protocol = print_Etho(igmp[i])
-			iphl, protocol = print_IP_Linux(igmp[i], eth_length)
-			print_IGMP(igmp[i], iphl+eth_length, userInput)
+		    if(len(igmp) == 0):
+			print "\nNo IGMP protocols sniffed!"
+		    else:
+		    	options = attributeOptions(choice)
+		    	userInput = stringToArr(options)
+		    	for i in range(0, len(igmp)):
+				print "===============ETHERNET=================="
+				eth_length, eth_protocol = print_Etho(igmp[i])
+				print "==================IP====================="
+				iphl, protocol = print_IP_Linux(igmp[i], eth_length)
+				print_IGMP(igmp[i], iphl+eth_length, userInput)
 		#print all other protocols found
 		elif(choice == '5'):
 		    other = dict_Packets['OTHER']
-		    for i in range(0, len(other)):
-			eth_length, eth_protocol = print_Etho(other[i])
-			iphl, protocol = print_IP_Linux(other[i],eth_length)
-			print "\nUnparsed protocol found\n!"
+		    if(len(other) == 0):
+			print "\nNo Other protocols sniffed!"
+		    else:
+		    	for i in range(0, len(other)):
+				print "===============ETHERNET=================="
+				eth_length, eth_protocol = print_Etho(other[i])
+				print "==================IP====================="
+				iphl, protocol = print_IP_Linux(other[i],eth_length)
+				print "\nUnparsed protocol found\n!"
+		#print all ARP protocols found
 		elif(choice == '6'):
-		    options = attributeOptions(choice)
-		    userInput = stringToArr(options)
 		    arp = dict_Packets['ARP']
-		    for i in range(0, len(arp)):
-			eth_length, eth_protocol = print_Etho(arp[i])
-			print_ARP(arp[i], eth_length, userInput)
+		    if(len(arp) == 0):
+			print "\nNo ARP protocols sniffed!"
+		    else:
+			options = attributeOptions(choice)		    	
+			userInput = stringToArr(options)
+		    	for i in range(0, len(arp)):
+				print "===============ETHERNET=================="
+				eth_length, eth_protocol = print_Etho(arp[i])
+				print_ARP(arp[i], eth_length, userInput)
+		#exit this part of the program
 		elif(choice == '7'):
 		    break
 		else:
 		    print "Invalid option!\n"
 		
-
-	#server/client code will go here and determine throughput    
-	#print "Successfully implemented the First Part!"
 	#print out the maxsize and the average of the data session    
 	max_total(os, dict_Packets['ALL'])
 	#s.close()    
-
-	"""
-	Client Server will be created and go here 
-	"""
 	
-
-
 	"""
 	Congestion window will be displayed by code below, it will iterate through all TCP packets to determine window sizes
 	"""
@@ -193,11 +217,9 @@ def sniff_Linux(os):
 	"""
 	Make the call to diameter to get the diameter of the network using TCP packets
 	"""
-	print "========================================"
 	print "================DIAMETER================"
-	print "========================================"
 	complement, aveComp = diameter(os, dict_Packets['TCP'], local_ip_address)
-	print "The Diameter of the Network is: {}\nThe Average Diameter of the Network is: {}".format(complement, aveComp)
+	print "The Diameter of the Network is: {}\nThe Average Diameter of the Network is: {}\n".format(complement, aveComp)
 	
 	#ask the user to input whether they want to see the Congestion 
 	answer = raw_input("Would you like to see the Congestion Windows? Y | N\n")
@@ -236,6 +258,7 @@ def sniff_Linux(os):
 			throughput()
 		elif(answer == 'n'):
 			break
+		#if the user gives invalid code, ask again
 		else:
 			answer = raw_input("Invalid input, try again: Y | N\n")
 			answer = answer.lower()
@@ -244,35 +267,50 @@ def sniff_Linux(os):
 	s.close()
 	sys.exit()
 
+"""
+Simple function that returns an array of strings delimited by a space
+"""
 def stringToArr(string):
 	return string.split( )
 
+"""
+This function displays the options available when selecting which attributes the user may want to see
+It takes in the choice made earlier at the protocol menu
+"""
 def attributeOptions(protocolChosen):
 	print "Which attributes would you like to see?\n"
+	#pre-filled lists with all the available options
 	optionsTCP = ['Source Port', 'Destination Port', 'Acknowledgement #', 'Sequence #', 'TCP Length', 'Window Size', 'Checksum', 'Flags']
 	optionsUDP = ['Source Port','Destination Port','Length','Checksum']
 	optionsICMP = ['Type', 'Code', 'Identifier', 'Sequence','Checksum']
 	optionsIGMP = ['Type', 'MaxTime', 'Checksum']
 	optionsARP = ['Hardware Type', 'Protocol Type', 'Hardware Size', 'Protocol Size', 'Operation', 'MAC Source', 'IP Source', 'MAC Destination', 'IP Destination']
-	
+	#switch-case set up for the selection of which menu to display
+	# 0 - All protocols and all attributes chosen
 	if(protocolChosen == '0'):
 		print "All will be printed"
 		return '0'
+	# 1 - Only TCP attributes displayed
 	elif(protocolChosen == '1'):
 		for i in range(0, 8):
 			print "{}: {}".format(i+1,optionsTCP[i])
+	# 2 - Only UDP attribures displayed
 	elif(protocolChosen == '2'):
 		for i in range(0, 4):
 			print "{}: {}".format(i+1,optionsUDP[i])
+	# 3 - Only ICMP attribures displayed
 	elif(protocolChosen == '3'):
 		for i in range(0, 5):
 			print "{}: {}".format(i+1,optionsICMP[i])
+	# 4 - Only IGMP attributes displayed
 	elif(protocolChosen == '4'):
 		for i in range(0, 3):
 			print "{}: {}".format(i+1,optionsIGMP[i])
+	# 6 - Only ARP attributes displayed
 	elif(protocolChosen == '6'):
 		for i in range(0, 9):
 			print "{}: {}".format(i+1,optionsARP[i])
+	# 5 - all other protocols that were not handled
 	else:
 		print "Protocols not Parsed"
 		return '5'
@@ -280,21 +318,28 @@ def attributeOptions(protocolChosen):
 	userChoice = raw_input("Enter Choices: ")
 	return userChoice
 
-
+"""
+This function creates a client TCP server that will be connected to a separate Server on a
+different machine and it will send data of 500 different sizes a set number of times and have 
+throughput calculated and graphed for the user
+"""
 def throughput():
 	#variables used
-	timeArr = []
-	sizeArr  = []
+	throughArr = []
+	timeArr  = []
 	totalTime = 0
 	totalThroughput = 0
 	
 	#create the port number 12000 and the serverName set to 'localhost'
 	serverPort = 12000
 	serverName = '192.168.1.80'
-
+	#create a TCP socket of connection
 	clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	clientSocket.connect((serverName, serverPort))
+	#initial size of the file
 	size = 20
+	flag = True
+	#loop 500 times with a different file size every time
 	for i in range(0, 500):
 		data = 'x' * size
 		for k in range(0, 100):
@@ -302,17 +347,25 @@ def throughput():
 			clientSocket.send(data)
 			response = clientSocket.recv(65565)
 			t2 = time.time()
+			if(flag):
+				timeArr.append(t2)
+				flag = False
+			#totalThroughput is the cumulative throughput of each iteration
 			totalThroughput += size/float(t2-t1)
+			#totalTime is the cumulative time from time of sending to time of receiving acknowledgement
 			totalTime += t2-t1
-		timeArr.append(totalThroughput/100)
-		sizeArr.append(totalTime/100)
+		#get the average of the throughput and times
+		throughArr.append(totalThroughput/100)
+		#####timeArr.append(totalTime/100)
 		size += 20
+		flag = True
+	#creates the graph for throughput, adding labels
 	fig = plt.figure()
 	fig.suptitle('Throughput', fontsize=12, fontweight='bold')
 	ax = fig.add_subplot(111)
 	ax.set_xlabel('Time')
 	ax.set_ylabel('Throughput')
-	ax.plot(sizeArr, timeArr)
+	ax.plot(timeArr, throughArr)
 	plt.show()
 	clientSocket.close()
 
@@ -333,7 +386,8 @@ def diameter(os, packet_list, addr):
 		stop = start+20
 	total_TTL = 0
 	numPacks = 0
-	minimumTTL = 1000
+	minimumDiam = 1000
+	maxDiam = -1
 	for i in range(0, len(packet_list)):
 		data = packet_list[i]
 		ipDatagram = data[start:stop]
@@ -341,14 +395,27 @@ def diameter(os, packet_list, addr):
 		ttl = ipHeader[5]
 		source = socket.inet_ntoa(ipHeader[8])
 		if(source != addr):
-			total_TTL += (64-ttl)
 			numPacks += 1
-			if(minimumTTL > ttl):
-				minimumTTL = ttl
+			#cisco
+			if(ttl>128):
+				diameter = (255-ttl)
+				total_TTL += diameter
+			#windows
+			elif(ttl>64):
+				diameter = (128-ttl)
+				total_TTL += diameter
+			#linux
+			else:
+				diameter = (64-ttl)
+				total_TTL += diameter
+			if(minimumDiam > diameter):
+				minimumDiam = diameter
+			if(maxDiam < diameter):
+				maxDiam = diameter
 	averageTTL = 0
 	if(numPacks > 0):
 		averageTTL = (float(total_TTL)/numPacks)
-	return (64-minimumTTL), averageTTL
+	return maxDiam, averageTTL
 
 """
 Function that will be take the TCP packets and sift through to find any outgoing and append the congestion/receive window
@@ -387,7 +454,8 @@ def print_Etho(packet):
 	eth = unpack('!6s6sH', eth_header)
 	#eth_protocol = socket.ntohs(eth[2])
 	eth_protocol = eth[2]
-	print '\n\nDestination MAC: ' + eth_addr(packet[:6]) + ' Source MAC: ' + eth_addr(packet[6:12]) + ' Protocol: ' + hex(eth_protocol)
+
+	print 'Destination MAC: ' + eth_addr(packet[:6]) + ' Source MAC: ' + eth_addr(packet[6:12]) + ' Protocol: ' + hex(eth_protocol) + '\n'
 
 	return eth_length, hex(eth_protocol)
 
@@ -440,9 +508,9 @@ def print_ARP(packet, eth_length, userInput):
 	proto_size = ARP_stuff[3]
 	operation = ARP_stuff[4]
 	Mac_source = ARP_stuff[5]
-	Ip_source = ARP_stuff[6]
+	Ip_source = socket.inet_ntoa(ARP_stuff[6])
 	Mac_Destination = ARP_stuff[7]
-	Ip_Destination = ARP_stuff[8]
+	Ip_Destination = socket.inet_ntoa(ARP_stuff[8])
 
 	data = [hard_type, proto_type, hard_size, proto_size, operation, Mac_source, Ip_source, Mac_Destination, Ip_Destination]
 	print '\n'
@@ -481,17 +549,17 @@ def print_IP_Linux(packet, eth_length):
     #source and destination ip addresses
     sourceIP = socket.inet_ntoa(ipDatagram[8])
     destinationIP = socket.inet_ntoa(ipDatagram[9])
-    
+   
     print "Version: \t\t" + str(ipVer)
     print "Header Length: \t\t" + str(iphl) + " bytes"
-    #print "Type of Service: \t" + TypeOfService(TOS)
+    print "Type of Service: \t" + TypeOfService(TOS)
     print "Length:\t\t\t" + str(totalLength)
-    #print "ID:\t\t\t" + str(hex(ID)) + '(' +str(ID) + ')'
+    print "ID:\t\t\t" + str(hex(ID)) + '(' +str(ID) + ')'
     print "Flags:\t\t\t" + getFlags(flags)
-    #print "Fragment Offset:\t" + str(fragments)
+    print "Fragment Offset:\t" + str(fragments)
     print "TTL:\t\t\t" + str(ttl)
     print "Protocol:\t\t" + getProtocol(protocol)
-    #print "Checksum:\t\t" + str(checksum)
+    print "Checksum:\t\t" + str(checksum)
     print "SourceIP:\t\t" + sourceIP
     print "DestinationIP:\t\t" + destinationIP
     
@@ -760,14 +828,14 @@ def print_TCP(packet, iphl, userInput):
     checksum = tcph[7]
 
     data = [source_port, destination_port, acknowledgment, sequence, tcph_length*4, conge_win, checksum]
-    print '\n'
+    print '\n===================TCP===================='
     for i in range(0, 7):
 	if(str(i+1) in userInput):
 		print "{}: {}".format(optionsTCP[i], data[i])
     if('8' in userInput):
 	print "Flags: "
 	getTCPFlags(tcph[4], tcph[5])
-
+    print "\n\n"
     #print 'Source Port {}, Destination Port {}, sequence {}'.format(source_port, destination_port, sequence)
     #print 'Acknowledgement {}, TCP Length {}, Congestion Window: {}'.format(acknowledgment, tcph_length*4, conge_win)
     
@@ -792,11 +860,11 @@ def print_UDP(packet, iphl, userInput):
     checksum = udph[3]
 
     data = [source_port, destination_port, length, checksum]
-    print '\n'
+    print '\n==================UDP===================='
     for i in range(0, len(optionsUDP)):
 	if(str(i+1) in userInput):
 		print "{}: {}".format(optionsUDP[i], data[i])
-
+    print "\n\n"
     #print 'Source Port: {}, Destination Port: {}'.format(source_port, destination_port)
     #print 'length: {}, checksum: {}'.format(length, checksum)                
     #not used curretnly but may be useful for some future tasks, contains the data and header_size
@@ -820,11 +888,11 @@ def print_ICMP(packet, iphl, userInput):
     icmp_checksum = icmp[2]
     
     data = [icmp_type, icmp_code, icmp_identifier, icmp_sequence, icmp_chescksum]
-    print '\n'
+    print '\n==================ICMP==================='
     for i in range(0, len(optionsICMP)):
 	if(str(i+1) in userInput):
 		print "{}: {}".format(optionsICMP[i], data[i])
-
+    print "\n\n"
     #print "Type: {}, Code: {}, Checksum: {}".format(icmp_type, icmp_code, icmp_checksum)
     #print "Identifier: {}, Sequence: {}".format(icmp_identifier, icmp_sequence)
 """
@@ -842,11 +910,11 @@ def print_IGMP(packet, iphl, userInput):
     igmp_checksum = igmp[2]
 
     data = [igmp_type, igmp_MaxTime, igmp_checksum]
-    print '\n'
+    print '\n==================IGMP==================='
     for i in range(0, len(optionsIGMP)):
 	if(str(i+1) in userInput):
 		print "{}: {}".format(optionsIGMP[i], data[i])
-    
+    print "\n\n"
     #print "Type: {}, Max Response Time: {}".format(igmp_type, igmp_MaxTime)
 
 """

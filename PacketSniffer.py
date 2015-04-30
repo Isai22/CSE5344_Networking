@@ -58,7 +58,7 @@ def sniff_Linux(os):
 		print "Linux"
 		print "\nPacket previews will be displayed, after a specific number of packets it stops sniffing.\n"
 	        raw_input('Press Enter to continue')
-		limit = 400
+		limit = 600
 		count = 0
         	#loop that will print a small preview of the IP header for the user to see and capture the packets        
         	while(count < limit):
@@ -218,8 +218,9 @@ def sniff_Linux(os):
 	Make the call to diameter to get the diameter of the network using TCP packets
 	"""
 	print "================DIAMETER================"
-	complement, aveComp = diameter(os, dict_Packets['TCP'], local_ip_address)
-	print "The Diameter of the Network is: {}\nThe Average Diameter of the Network is: {}\n".format(complement, aveComp)
+	complement, aveComp, medianComp = diameter(os, dict_Packets['TCP'], local_ip_address)
+	print "The Diameter of the Network is: {}\nThe Average Diameter of the Network is: {}".format(complement, aveComp)
+	print "The Median of the Diameter of the Network is {}\n".format(medianComp)
 	
 	#ask the user to input whether they want to see the Congestion 
 	answer = raw_input("Would you like to see the Congestion Windows? Y | N\n")
@@ -278,7 +279,7 @@ This function displays the options available when selecting which attributes the
 It takes in the choice made earlier at the protocol menu
 """
 def attributeOptions(protocolChosen):
-	print "Which attributes would you like to see?\n"
+	print "Which attributes would you like to see?\nPlease space out your choices as follows: 1 3 5 ...ect\n"
 	#pre-filled lists with all the available options
 	optionsTCP = ['Source Port', 'Destination Port', 'Acknowledgement #', 'Sequence #', 'TCP Length', 'Window Size', 'Checksum', 'Flags']
 	optionsUDP = ['Source Port','Destination Port','Length','Checksum']
@@ -327,22 +328,23 @@ def throughput():
 	#variables used
 	throughArr = []
 	timeArr  = []
+	sizeArr  = []
 	totalTime = 0
 	totalThroughput = 0
 	
 	#create the port number 12000 and the serverName set to 'localhost'
 	serverPort = 12000
-	serverName = '192.168.1.80'
+	serverName = '192.168.1.17'
 	#create a TCP socket of connection
 	clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	clientSocket.connect((serverName, serverPort))
 	#initial size of the file
-	size = 20
+	size = 2000
 	flag = True
 	#loop 500 times with a different file size every time
 	for i in range(0, 500):
 		data = 'x' * size
-		for k in range(0, 100):
+		for k in range(0, 10):
 			t1 = time.time()
 			clientSocket.send(data)
 			response = clientSocket.recv(65565)
@@ -355,9 +357,10 @@ def throughput():
 			#totalTime is the cumulative time from time of sending to time of receiving acknowledgement
 			totalTime += t2-t1
 		#get the average of the throughput and times
-		throughArr.append(totalThroughput/100)
+		throughArr.append(totalThroughput/10)
 		#####timeArr.append(totalTime/100)
-		size += 20
+		sizeArr.append(size/1024)
+		size += 200
 		flag = True
 	#creates the graph for throughput, adding labels
 	fig = plt.figure()
@@ -384,6 +387,8 @@ def diameter(os, packet_list, addr):
 	elif(os == "Windows"):
 		start = 0
 		stop = start+20
+	#diameterArr contains all the network diameter values
+	diameterArr = []
 	total_TTL = 0
 	numPacks = 0
 	minimumDiam = 1000
@@ -408,6 +413,7 @@ def diameter(os, packet_list, addr):
 			else:
 				diameter = (64-ttl)
 				total_TTL += diameter
+			diameterArr.append(diameter)
 			if(minimumDiam > diameter):
 				minimumDiam = diameter
 			if(maxDiam < diameter):
@@ -415,7 +421,10 @@ def diameter(os, packet_list, addr):
 	averageTTL = 0
 	if(numPacks > 0):
 		averageTTL = (float(total_TTL)/numPacks)
-	return maxDiam, averageTTL
+
+	diameterArr = sorted(diameterArr)
+	medianDiam = diameterArr[len(diameterArr)/2]
+	return maxDiam, averageTTL, medianDiam
 
 """
 Function that will be take the TCP packets and sift through to find any outgoing and append the congestion/receive window
@@ -507,17 +516,17 @@ def print_ARP(packet, eth_length, userInput):
 	hard_size = ARP_stuff[2]
 	proto_size = ARP_stuff[3]
 	operation = ARP_stuff[4]
-	Mac_source = ARP_stuff[5]
+	Mac_source = eth_addr(ARP_stuff[5])
 	Ip_source = socket.inet_ntoa(ARP_stuff[6])
-	Mac_Destination = ARP_stuff[7]
+	Mac_Destination = eth_addr(ARP_stuff[7])
 	Ip_Destination = socket.inet_ntoa(ARP_stuff[8])
 
 	data = [hard_type, proto_type, hard_size, proto_size, operation, Mac_source, Ip_source, Mac_Destination, Ip_Destination]
-	print '\n'
+	print '\n===================ARP===================='
 	for i in range(0, len(optionsARP)):
 		if(str(i+1) in userInput):
 			print "{}: {}".format(optionsARP[i], data[i])
-
+	print '\n'
 	#print "Hardware Type: {}, Protocol Type: {}, Hardware Size: {}, Protocol Size: {} bytes, Operation: {}".format(hard_type, hex(proto_type), hard_size, proto_size, operation)
 	#print "Mac Source address: {}, Mac Destination address: {}, IP Source address: {}, IP Destination address: {}".format(eth_addr(Mac_source), eth_addr(Mac_Destination), socket.inet_ntoa(Ip_source), socket.inet_ntoa(Ip_Destination))
 
@@ -887,7 +896,7 @@ def print_ICMP(packet, iphl, userInput):
     icmp_sequence = icmp[4]
     icmp_checksum = icmp[2]
     
-    data = [icmp_type, icmp_code, icmp_identifier, icmp_sequence, icmp_chescksum]
+    data = [icmp_type, icmp_code, icmp_identifier, icmp_sequence, icmp_checksum]
     print '\n==================ICMP==================='
     for i in range(0, len(optionsICMP)):
 	if(str(i+1) in userInput):
